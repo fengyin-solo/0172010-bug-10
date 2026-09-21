@@ -14,15 +14,17 @@ class App {
         // 初始化组件
         window.componentRenderer.init();
 
+        // 初始化侧栏展开状态 / 滚动锁定 / 位置记忆（须在渲染之后绑定卡片）
+        if (window.uiState) {
+            window.uiState.init();
+        }
+
         // 初始化图表
         window.chartManager.initFunnelChart('funnelChart');
         window.chartManager.initRadarChart('radarChart');
 
         // 监听窗口大小变化
         window.addEventListener('resize', this.handleResize.bind(this));
-
-        // 监听滚动
-        window.addEventListener('scroll', this.handleScroll.bind(this));
 
         console.log('🚀 Dashboard initialized successfully');
     }
@@ -33,17 +35,6 @@ class App {
         this.resizeTimer = setTimeout(() => {
             window.chartManager.resize();
         }, 250);
-    }
-
-    handleScroll() {
-        // 可以添加滚动相关的动画效果
-        const scrollY = window.scrollY;
-        const header = document.querySelector('.header');
-        
-        if (header) {
-            const opacity = Math.max(0.5, 1 - scrollY / 500);
-            header.style.opacity = opacity;
-        }
     }
 
     // 刷新数据

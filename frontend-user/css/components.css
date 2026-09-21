@@ -8,6 +8,8 @@
     padding: 50px 20px 40px;
     margin-bottom: 40px;
     position: relative;
+    /* 滚动透明度跟随，由 ui-state 统一设置 inline opacity */
+    transition: opacity 0.2s linear;
 }
 
 .header::after {
@@ -187,6 +189,7 @@
     grid-template-columns: 1fr 1fr;
     gap: 24px;
     margin-bottom: 40px;
+    scroll-margin-top: 16px;
 }
 
 .chart-card {
@@ -223,6 +226,7 @@
 /* ========== 矩阵表格 ========== */
 .matrix-section {
     margin-bottom: 40px;
+    scroll-margin-top: 16px;
 }
 
 .section-title {
@@ -440,11 +444,12 @@
 /* ========== 速赢行动清单 ========== */
 .quickwins-section {
     margin-bottom: 40px;
+    scroll-margin-top: 16px;
 }
 
 .quickwins-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 24px;
 }
 
@@ -453,6 +458,9 @@
     position: relative;
     overflow: hidden;
     cursor: pointer;
+    /* 防止 grid 轨道被内容撑宽，导致窄屏下列被挤出可视区 */
+    min-width: 0;
+    max-width: 100%;
 }
 
 .quickwin-card:hover {
@@ -531,7 +539,8 @@
 }
 
 .kpi-item {
-    flex: 1;
+    flex: 1 1 0;
+    min-width: 0;
     padding: 14px;
     background: rgba(0, 0, 0, 0.35);
     border-radius: var(--radius-md);
@@ -540,16 +549,17 @@
     transition: all var(--transition-fast);
 }
 
-.kpi-item:hover {
-    border-color: rgba(168, 85, 247, 0.4);
-    background: rgba(0, 0, 0, 0.5);
-}
-
 .kpi-value {
     font-size: 24px;
     font-weight: 800;
     color: var(--neon-green);
     text-shadow: 0 0 20px rgba(16, 185, 129, 0.5);
+    word-break: break-word;
+}
+
+.kpi-item:hover {
+    border-color: rgba(168, 85, 247, 0.4);
+    background: rgba(0, 0, 0, 0.5);
 }
 
 .kpi-label {
@@ -569,7 +579,7 @@
         grid-template-columns: 1fr;
     }
     .quickwins-grid {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 
@@ -584,10 +594,26 @@
         font-size: 30px;
     }
     .quickwins-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
     }
     .section-title {
         font-size: 20px;
+    }
+    /* 窄屏下收紧卡片内边距，保证内容（含 KPI）在单列内完整可见 */
+    .quickwin-card {
+        padding: 22px 18px;
+    }
+    .quickwin-kpi {
+        gap: 10px;
+    }
+    .kpi-item {
+        padding: 12px 8px;
+    }
+    .kpi-value {
+        font-size: 20px;
+    }
+    .chart-card {
+        padding: 20px 16px;
     }
 }
 
@@ -610,12 +636,23 @@
     align-items: center;
     justify-content: center;
     box-shadow: -4px 0 20px rgba(168, 85, 247, 0.4);
-    transition: all var(--transition-normal);
+    transition: opacity var(--transition-normal), width var(--transition-normal),
+                box-shadow var(--transition-normal);
+}
+
+.sidebar-toggle.is-hidden {
+    opacity: 0;
+    pointer-events: none;
 }
 
 .sidebar-toggle:hover {
     width: 52px;
     box-shadow: -6px 0 30px rgba(168, 85, 247, 0.6);
+}
+
+.sidebar-toggle.is-hidden:hover {
+    width: 44px;
+    box-shadow: -4px 0 20px rgba(168, 85, 247, 0.4);
 }
 
 .sidebar-toggle-icon {
@@ -628,7 +665,9 @@
     top: 0;
     right: 0;
     width: 380px;
+    max-width: 100vw;
     height: 100vh;
+    height: 100dvh;
     z-index: 1002;
     background: rgba(10, 10, 18, 0.92);
     backdrop-filter: blur(30px);
@@ -643,6 +682,12 @@
 
 .diagnostic-sidebar.open {
     transform: translateX(0);
+}
+
+/* 刷新恢复展开状态时不播放滑入动画 */
+.diagnostic-sidebar.no-transition,
+.diagnostic-sidebar.no-transition.open {
+    transition: none;
 }
 
 .sidebar-header {

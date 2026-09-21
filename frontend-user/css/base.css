@@ -23,6 +23,17 @@ body {
     -moz-osx-font-smoothing: grayscale;
 }
 
+/* 诊断侧栏展开时锁定页面滚动：
+   使用 position:fixed + top 偏移固定在当前滚动位置，兼容 iOS 触摸滚动；
+   不改变宽度/内边距，避免出现滚动条占位引发的横向跳动和网格重排。 */
+body.scroll-locked {
+    position: fixed;
+    left: 0;
+    right: 0;
+    width: 100%;
+    overflow: hidden;
+}
+
 /* 背景动画 */
 .bg-animation {
     position: fixed;

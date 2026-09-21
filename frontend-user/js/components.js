@@ -190,45 +190,21 @@ class ComponentRenderer {
 
     initSidebar() {
         const sidebar = document.getElementById('diagnosticSidebar');
-        const toggle = document.getElementById('sidebarToggle');
-        const close = document.getElementById('sidebarClose');
         const body = document.getElementById('sidebarBody');
-        if (!sidebar || !toggle || !close || !body) return;
+        if (!sidebar || !body) return;
 
-        toggle.addEventListener('click', () => {
-            sidebar.classList.add('open');
-            toggle.style.opacity = '0';
-            toggle.style.pointerEvents = 'none';
-        });
-
-        close.addEventListener('click', () => {
-            sidebar.classList.remove('open');
-            toggle.style.opacity = '1';
-            toggle.style.pointerEvents = 'auto';
-        });
-
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && sidebar.classList.contains('open')) {
-                sidebar.classList.remove('open');
-                toggle.style.opacity = '1';
-                toggle.style.pointerEvents = 'auto';
-            }
-        });
-
+        // 展开/关闭、滚动锁定与跳转统一交给 uiState 管理
         this.renderSidebarContent(body);
 
-        body.querySelectorAll('.sidebar-gap-card').forEach((card, i) => {
+        body.querySelectorAll('.sidebar-gap-card').forEach(card => {
             card.addEventListener('click', () => {
-                sidebar.classList.remove('open');
-                toggle.style.opacity = '1';
-                toggle.style.pointerEvents = 'auto';
-                const targets = ['.charts-section', '.matrix-section', '.quickwins-section'];
-                const target = document.querySelector(targets[i] || targets[0]);
-                if (target) {
-                    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    target.style.transition = 'box-shadow 0.5s ease';
-                    target.style.boxShadow = '0 0 40px rgba(168, 85, 247, 0.5)';
-                    setTimeout(() => { target.style.boxShadow = ''; }, 2000);
+                const target = card.dataset.target || '.charts-section';
+                if (window.uiState) {
+                    window.uiState.jumpTo(target);
+                } else {
+                    document.querySelector(target)?.scrollIntoView({
+                        behavior: 'smooth', block: 'start'
+                    });
                 }
             });
         });
@@ -274,8 +250,11 @@ class ComponentRenderer {
         html += '<div class="sidebar-section-title">🔴 关键断层</div>';
         d.keyGaps.forEach(gap => {
             const sevClass = gap.severity === 'critical' ? 'is-critical' : 'is-high';
+            // 断层与页面区块的映射，优先取数据中的 target，其次按断层索引兜底
+            const targetSelectors = ['.charts-section', '.matrix-section', '.quickwins-section'];
+            const target = gap.target || targetSelectors[Number(gap.id) - 1] || targetSelectors[0];
             html += `
-                <div class="sidebar-gap-card ${sevClass}" data-gap-id="${gap.id}">
+                <div class="sidebar-gap-card ${sevClass}" data-gap-id="${gap.id}" data-target="${target}">
                     <div class="sidebar-gap-header">
                         <span class="sidebar-gap-icon">${gap.icon}</span>
                         <span class="sidebar-gap-title">${gap.title}</span>
