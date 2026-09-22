@@ -36,14 +36,16 @@ class App {
     }
 
     handleScroll() {
-        // 可以添加滚动相关的动画效果
-        const scrollY = window.scrollY;
+        this.updateHeader();
+    }
+
+    // 根据当前页面滚动位置更新头部高亮状态。
+    // 统一入口：滚动、侧栏解锁、状态恢复后都会重新计算，避免残留半透明。
+    updateHeader() {
         const header = document.querySelector('.header');
-        
-        if (header) {
-            const opacity = Math.max(0.5, 1 - scrollY / 500);
-            header.style.opacity = opacity;
-        }
+        if (!header) return;
+        const faded = window.scrollY > 20;
+        header.classList.toggle('is-scrolled', faded);
     }
 
     // 刷新数据

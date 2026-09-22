@@ -193,44 +193,176 @@ class ComponentRenderer {
         const toggle = document.getElementById('sidebarToggle');
         const close = document.getElementById('sidebarClose');
         const body = document.getElementById('sidebarBody');
+        const matrixWrapper = document.querySelector('.matrix-wrapper');
         if (!sidebar || !toggle || !close || !body) return;
-
-        toggle.addEventListener('click', () => {
-            sidebar.classList.add('open');
-            toggle.style.opacity = '0';
-            toggle.style.pointerEvents = 'none';
-        });
-
-        close.addEventListener('click', () => {
-            sidebar.classList.remove('open');
-            toggle.style.opacity = '1';
-            toggle.style.pointerEvents = 'auto';
-        });
-
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && sidebar.classList.contains('open')) {
-                sidebar.classList.remove('open');
-                toggle.style.opacity = '1';
-                toggle.style.pointerEvents = 'auto';
-            }
-        });
 
         this.renderSidebarContent(body);
 
-        body.querySelectorAll('.sidebar-gap-card').forEach((card, i) => {
-            card.addEventListener('click', () => {
-                sidebar.classList.remove('open');
-                toggle.style.opacity = '1';
-                toggle.style.pointerEvents = 'auto';
-                const targets = ['.charts-section', '.matrix-section', '.quickwins-section'];
-                const target = document.querySelector(targets[i] || targets[0]);
-                if (target) {
-                    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    target.style.transition = 'box-shadow 0.5s ease';
-                    target.style.boxShadow = '0 0 40px rgba(168, 85, 247, 0.5)';
-                    setTimeout(() => { target.style.boxShadow = ''; }, 2000);
-                }
+        // 侧栏展开状态与三处滚动位置（页面 / 矩阵列表 / 侧栏自身）统一持久化，
+        // 保证刷新后与关闭前一致
+        const STORAGE_KEY = 'diagnosticSidebarState';
+        const CLOSE_DURATION = 400; // 与 CSS 中侧栏 transform 过渡时长保持一致
+        const root = document.documentElement;
+
+        const loadState = () => {
+            try {
+                return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+            } catch (e) {
+                return {};
+            }
+        };
+        const saveState = (patch) => {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...loadState(), ...patch }));
+            } catch (e) {
+                // 隐私模式等场景下静默降级
+            }
+        };
+        const debouncedSave = (() => {
+            const timers = {};
+            return (patch, key = 'default', delay = 100) => {
+                clearTimeout(timers[key]);
+                timers[key] = setTimeout(() => saveState(patch), delay);
+            };
+        })();
+
+        // 临时关闭平滑滚动，用于状态恢复时的精确定位
+        const instantScrollTo = (y) => {
+            const previous = root.style.scrollBehavior;
+            root.style.scrollBehavior = 'auto';
+            window.scrollTo(0, y);
+            root.style.scrollBehavior = previous;
+        };
+
+        // 背景滚动锁定：锁定前后记录/恢复页面滚动位置，并用等宽内边距补偿消失的滚动条
+        const lockBackground = () => {
+            const scrollbarGap = window.innerWidth - root.clientWidth;
+            root.style.setProperty('--scrollbar-gap', `${scrollbarGap}px`);
+            root.classList.add('sidebar-lock');
+        };
+        const unlockBackground = () => {
+            root.classList.remove('sidebar-lock');
+            root.style.removeProperty('--scrollbar-gap');
+        };
+        const syncHeader = () => {
+            if (window.app && typeof window.app.updateHeader === 'function') {
+                window.app.updateHeader();
+            }
+        };
+
+        const openSidebar = () => {
+            if (sidebar.classList.contains('open')) return;
+            const state = loadState();
+            saveState({ open: true, pageScrollY: window.scrollY });
+            lockBackground();
+            sidebar.classList.add('open');
+            toggle.classList.add('is-hidden');
+            // 恢复侧栏自身上次的滚动位置
+            requestAnimationFrame(() => {
+                body.scrollTop = state.sidebarScrollTop || 0;
             });
+        };
+
+        const closeSidebar = () => {
+            if (!sidebar.classList.contains('open')) return;
+            const returnY = loadState().pageScrollY ?? window.scrollY;
+            sidebar.classList.remove('open');
+            toggle.classList.remove('is-hidden');
+            saveState({ open: false });
+            // 等侧栏滑出动画结束后再解锁并把页面恢复到打开前的位置
+            window.setTimeout(() => {
+                if (sidebar.classList.contains('open')) return;
+                unlockBackground();
+                instantScrollTo(returnY);
+                syncHeader();
+            }, CLOSE_DURATION);
+        };
+
+        // 断层卡片 -> 页面区块映射，使用数据 id 而不是节点下标
+        const jumpTargets = {
+            1: '.charts-section',
+            2: '.matrix-section',
+            3: '.quickwins-section'
+        };
+
+        const jumpToTarget = (card) => {
+            const selector = jumpTargets[card.dataset.gapId] || jumpTargets[1];
+            const target = document.querySelector(selector);
+            sidebar.classList.remove('open');
+            toggle.classList.remove('is-hidden');
+            saveState({ open: false });
+            window.setTimeout(() => {
+                if (sidebar.classList.contains('open')) return;
+                // 侧栏完全滑出后再解锁、再定位，目标区块不会被侧栏遮挡
+                unlockBackground();
+                if (!target) return;
+                if (selector === '.matrix-section' && matrixWrapper) {
+                    matrixWrapper.scrollLeft = 0; // “📍 当前位置”在最左列
+                }
+                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                this.flashSection(target);
+                // 平滑滚动结束后的最终位置由 window scroll 监听自动持久化
+                syncHeader();
+            }, CLOSE_DURATION);
+        };
+
+        toggle.addEventListener('click', openSidebar);
+        close.addEventListener('click', closeSidebar);
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeSidebar();
+        });
+
+        body.querySelectorAll('.sidebar-gap-card').forEach((card) => {
+            card.addEventListener('click', () => jumpToTarget(card));
+        });
+
+        // 侧栏自身滚动位置
+        body.addEventListener('scroll', () => {
+            debouncedSave({ sidebarScrollTop: body.scrollTop }, 'sidebar', 120);
+        }, { passive: true });
+
+        // 页面滚动位置（仅在未锁定时记录，锁定期间背景不应产生位移）
+        window.addEventListener('scroll', () => {
+            if (!root.classList.contains('sidebar-lock')) {
+                debouncedSave({ pageScrollY: window.scrollY }, 'page', 80);
+            }
+        }, { passive: true });
+
+        // 矩阵表格横向列表的滚动位置
+        if (matrixWrapper) {
+            matrixWrapper.addEventListener('scroll', () => {
+                debouncedSave({ matrixScrollLeft: matrixWrapper.scrollLeft }, 'matrix', 120);
+            }, { passive: true });
+        }
+
+        // 恢复刷新前的展开状态与三处滚动位置
+        const state = loadState();
+        if ('scrollRestoration' in history) {
+            history.scrollRestoration = 'manual';
+        }
+        if (matrixWrapper) {
+            matrixWrapper.scrollLeft = state.matrixScrollLeft || 0;
+        }
+        instantScrollTo(state.pageScrollY || 0);
+        if (state.open) {
+            // 先恢复页面位置再锁定，避免 overflow:hidden 时无法定位
+            lockBackground();
+            sidebar.classList.add('open');
+            toggle.classList.add('is-hidden');
+            requestAnimationFrame(() => {
+                body.scrollTop = state.sidebarScrollTop || 0;
+            });
+        }
+        syncHeader();
+    }
+
+    // 跳转目标区块高亮
+    flashSection(section) {
+        section.querySelectorAll('.glass-card').forEach((card) => {
+            card.classList.remove('jump-highlight');
+            void card.offsetWidth; // 重置动画
+            card.classList.add('jump-highlight');
+            setTimeout(() => card.classList.remove('jump-highlight'), 2000);
         });
     }
 

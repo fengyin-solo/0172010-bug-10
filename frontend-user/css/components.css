@@ -8,6 +8,11 @@
     padding: 50px 20px 40px;
     margin-bottom: 40px;
     position: relative;
+    transition: opacity 0.3s ease;
+}
+
+.header.is-scrolled {
+    opacity: 0.55;
 }
 
 .header::after {
@@ -187,6 +192,7 @@
     grid-template-columns: 1fr 1fr;
     gap: 24px;
     margin-bottom: 40px;
+    scroll-margin-top: 16px;
 }
 
 .chart-card {
@@ -223,6 +229,7 @@
 /* ========== 矩阵表格 ========== */
 .matrix-section {
     margin-bottom: 40px;
+    scroll-margin-top: 16px;
 }
 
 .section-title {
@@ -440,6 +447,7 @@
 /* ========== 速赢行动清单 ========== */
 .quickwins-section {
     margin-bottom: 40px;
+    scroll-margin-top: 16px;
 }
 
 .quickwins-grid {
@@ -643,6 +651,34 @@
 
 .diagnostic-sidebar.open {
     transform: translateX(0);
+}
+
+/* 背景滚动锁定：侧栏展开期间页面本身不可滚动，
+   滚动条消失造成的横向跳动由 --scrollbar-gap 补偿（无经典滚动条时为 0） */
+html.sidebar-lock,
+html.sidebar-lock body {
+    overflow: hidden;
+    width: 100%;
+}
+
+html.sidebar-lock body {
+    padding-right: var(--scrollbar-gap, 0);
+}
+
+/* 侧栏打开时收起浮动开关（与侧栏显隐使用同一状态） */
+.sidebar-toggle.is-hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* 断层卡片跳转后的目标区块高亮 */
+@keyframes jumpFlash {
+    0% { box-shadow: 0 0 0 1px rgba(168, 85, 247, 0.9), 0 0 40px rgba(168, 85, 247, 0.55); }
+    100% { box-shadow: 0 0 0 1px rgba(168, 85, 247, 0), 0 0 0 rgba(168, 85, 247, 0); }
+}
+
+.jump-highlight {
+    animation: jumpFlash 2s ease-out;
 }
 
 .sidebar-header {
@@ -918,5 +954,19 @@
     }
     .sidebar-toggle:hover {
         width: 52px;
+    }
+    /* 为右下悬浮开关预留滚动空间，保证最后一张速赢卡片完整可见、KPI 不被遮挡 */
+    .container {
+        padding-bottom: 96px;
+    }
+    .quickwin-kpi {
+        gap: 10px;
+    }
+    .kpi-item {
+        min-width: 0;
+        padding: 12px 8px;
+    }
+    .kpi-value {
+        font-size: 20px;
     }
 }
